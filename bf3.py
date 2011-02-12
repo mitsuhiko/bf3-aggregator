@@ -18,10 +18,10 @@ from twitter_text import TwitterText
 from datetime import datetime, timedelta
 from urlparse import urljoin
 from flask import Flask, Markup, render_template, json, request, url_for, \
-     redirect, escape
+     redirect, escape, jsonify
 from flaskext.sqlalchemy import SQLAlchemy
 from werkzeug.urls import url_decode, url_encode, url_quote
-from werkzeug.http import parse_date
+from werkzeug.http import parse_date, http_date
 from werkzeug.contrib.atom import AtomFeed
 
 
@@ -48,6 +48,17 @@ _post_detail_re = re.compile(
 @app.template_filter('datetimeformat')
 def format_datetime(obj):
     return obj.strftime('%Y-%m-%d @ %H:%M')
+
+
+def request_wants_json():
+    """Returns true if the request wants to get JSON output"""
+    # we only accept json if the quality of json is greater than the
+    # quality of text/html because text/html is preferred to support
+    # browsers that accept on */*
+    best = request.accept_mimetypes \
+        .best_match(['application/json', 'text/html'])
+    return best == 'application/json' and \
+       request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
 
 
 def url_for_different_page(page):
@@ -93,6 +104,16 @@ class Developer(db.Model):
     @property
     def description(self):
         return Markup(self.cfg_dict.get('description', ''))
+
+    def to_dict(self, summary=False):
+        rv = {
+            'twitter_name':     self.twitter_name,
+            'forum_name':       self.forum_name,
+            'name':             self.name
+        }
+        if not summary:
+            rv['description'] = self.description
+        return rv
 
 
 class Message(db.Model):
@@ -140,6 +161,19 @@ class Message(db.Model):
         elif self.source == 'twitter':
             return u'A tweet'
         return u'Something'
+
+    def to_dict(self, summary=False):
+        rv = {
+            'source':       self.source,
+            'source_url':   self.source_url,
+            'date':         http_date(self.pub_date),
+            'developer':    self.developer.to_dict(summary=True)
+        }
+        if not summary:
+            rv['html_text'] = unicode(self.html_text)
+            if self.source == 'twitter':
+                rv['twitter_text'] = self.text
+        return rv
 
 
 class AuthenticationError(Exception):
@@ -400,12 +434,16 @@ def sync():
 
 def show_listing(template, page, query, per_page=30, context=None):
     """Helper that renders listings"""
-    if context is None:
-        context = {}
-    context['pagination'] = query \
+    pagination = query \
         .options(db.eagerload('developer')) \
         .order_by(Message.pub_date.desc()) \
         .paginate(page, per_page)
+    if request_wants_json():
+        return jsonify(messages=[x.to_dict() for x in pagination.items])
+
+    if context is None:
+        context = {}
+    context['pagination'] = pagination
     return render_template(template, **context)
 
 
