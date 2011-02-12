@@ -21,7 +21,14 @@ from flask import Flask, Markup, render_template, json, request, url_for, \
      redirect, escape, jsonify
 from flaskext.sqlalchemy import SQLAlchemy
 from werkzeug.urls import url_decode, url_encode, url_quote
-from werkzeug.http import parse_date, http_date
+from werkzeug.http import parse_date
+
+# old werkzeug version
+try:
+    from werkzeug.http import http_date
+except ImportError:
+    from werkzeug import http_date
+
 from werkzeug.contrib.atom import AtomFeed
 
 
