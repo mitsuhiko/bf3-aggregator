@@ -36,7 +36,7 @@ logging.basicConfig(level=logging.ERROR)
 _security_token_re = re.compile(r'var SECURITYTOKEN\s+=\s+"([^"]+)"')
 _post_reference_re = re.compile(
     r'<img class="inlineimg" src="images/icons/icon1\.gif" alt="" border="0" />'
-    r'\s+<a href=".*?post(\d+)\.html#post'
+    r'\s+<a href=".*?\.html#post(\d+)'
 )
 _post_detail_re = re.compile(
     r'(?P<date>(?:Today|Yesterday|\d{2}-\d{2}-\d{4}), \d{2}:\d{2} (?:AM|PM)).*?'
