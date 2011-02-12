@@ -27,7 +27,7 @@ from werkzeug.contrib.atom import AtomFeed
 
 app = Flask(__name__)
 app.config.from_pyfile('defaults.cfg')
-app.config.from_pyfile('local.cfg', silent=True)
+app.config.from_pyfile('local.cfg')
 db = SQLAlchemy(app)
 logger = logging.getLogger('bf3')
 logging.basicConfig(level=logging.ERROR)
