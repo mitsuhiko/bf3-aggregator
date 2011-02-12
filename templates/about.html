@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+{% block title %}About this Website{% endblock %}
+{% block body %}
+  <h2>About this Website</h2>
+  <div class=box>
+    <h3>What's this?</h3>
+    <p>
+      This website aggregates the official battlefield 3 forums and the twitter
+      accounts of developers for news from the sources.  It updates in 15
+      minute intervals and aggregates most developer accounts.  In case you think
+      I am missing one, <a href=mailto:armin.ronacher@active-4.com>shoot me a line</a>
+      and I will add him or her.
+    <h3>Who is behind this?</h3>
+    <p>
+      <a href=http://lucumr.pocoo.org/>Armin Ronacher</a>.  You can contact me
+      <a href=mailto:armin.ronacher@active-4.com>via mail</a> or
+      <a href=http://twitter.com/mitsuhiko>Twitter</a>.
+    <h3>Why does this website exist?</h3>
+    <p>
+      Following the twitter accounts of all developers is not the problem, but
+      also finding what they write into the forums is too much work.  However every
+      once in a while there is some interesting information in the forums which
+      is why I decided to automatically collect that information.
+    <h3>There is too much information</h3>
+    <p>
+      Indeed.  If you have some ideas how I could filter out useless tweets and
+      stuff, let me know.  I am already filtering out replies to other people
+      from the tweets which reduced the amount of information here a lot, but it's
+      still too much.  I personally mostly use it to track the forum posts which
+      are otherwise quite hard to find.
+  </div>
+{% endblock %}

@@ -1,0 +1,26 @@
+<!doctype html>
+<title>{% block title %}{% endblock %} | Battlefield3 Development News Aggregator</title>
+<link rel=stylesheet href={{ url_for('static', filename='style.css') }} type=text/css>
+{%- if feed_url is defined %}
+<link href="{{ feed_url }}" rel=alternate title="BF3 Development News" type=application/atom+xml>
+{%- endif %}
+<div class=page>
+  <div class=header>
+    <h1>Battlefield 3 Development News Aggregator</h1>
+  </div>
+  <ul class=navigation>
+    {%- for endpoint, caption in [
+      ('show_all', 'All News'),
+      ('show_forums', 'Forum Posts'),
+      ('show_tweets', 'Tweets'),
+      ('show_developers', 'Developers'),
+      ('about', 'About')
+    ] %}
+      <li{% if endpoint == request.endpoint %} class=active{% endif
+      %}><a href={{ url_for(endpoint) }}>{{ caption }}</a>
+    {%- endfor %}
+  </ul>
+  <div class=contents>
+    {% block body %}{% endblock %}
+  </div>
+</div>

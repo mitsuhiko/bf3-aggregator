@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+{% block title %}Developers{% endblock %}
+{% block body %}
+  <h2>Developers</h2>
+  <div class=box>
+    <p>
+      The following developers are currently tracker by this website:
+    <ul>
+    {%- for developer in developers %}
+      <li><a href={{ url_for('show_developer', slug=developer.slug) }}>{{ developer.name }}</a>
+        {% if developer.twitter_name %}aka <a href=http://twitter.com/{{ developer.twitter_name
+          }}>@{{ developer.twitter_name }}</a>{% endif %}
+    {%- endfor %}
+    </ul>
+  </div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends 'listing.html' %}
+{% set feed_url = url_for('feed', source='developer', slug=developer.slug) %}
+{% block title %}News by “{{ developer.name }}”{% endblock %}
+{% block listing_body %}
+  <dl class=developer-box>
+    {%- if developer.twitter_name %}
+    <dt>Twitter name
+    <dd><a href=http://twitter.com/{{ developer.twitter_name
+      }}>@{{ developer.twitter_name }}</a>
+    {%- endif %}
+    {%- if developer.forum_name %}
+    <dt>Forum name
+    <dd>{{ developer.forum_name }}
+    {%- endif %}
+    <dt>Description
+    <dd>{{ developer.description }}
+  </dl>
+  {{ super() }}
+{% endblock %}

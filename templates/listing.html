@@ -1,0 +1,35 @@
+{% extends 'layout.html' %}
+{% from '_helpers.html' import render_pagination %}
+{% block body %}
+  <h2>{{ self.title() }}</h2>
+  {% block listing_body %}
+  <ul class=news>
+  {%- for item in pagination.items %}
+    <li class="item item-{{ item.source }} item-{{ loop.cycle('odd', 'even') }}">
+      <div class=developer>
+        <a class=developer href={{
+          url_for('show_developer', slug=item.developer.slug) }}>{{
+            item.developer.name }}</a> wrote on
+          <em>{{ item.pub_date|datetimeformat }}</em>
+        {% if item.source == 'forums' %}
+          in the <a href={{ config.FORUM_URL }}>forums</a>
+        {% elif item.source == 'twitter' %}
+          via <a href=http://www.twitter.com/{{
+            item.developer.twitter_name }}>Twitter</a>
+        {% endif %}
+        (<a href="{{ item.source_url }}">source</a>):
+      </div>
+      <div class=text>
+        {{ item.html_text }}
+      </div>
+  {%- endfor %}
+  </ul>
+
+  {% if feed_url is defined %}
+  <div class=feed-box>
+    <a href={{ feed_url }}>Feed</a>
+  </div>
+  {% endif %}
+  {{ render_pagination(pagination) }}
+  {% endblock %}
+{% endblock %}

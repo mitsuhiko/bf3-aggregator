@@ -1,0 +1,6 @@
+Flask
+Flask-SQLAlchemy
+Flask-Script
+lxml
+html5lib
+twitter_text_py
