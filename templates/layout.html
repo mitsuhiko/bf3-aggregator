@@ -1,6 +1,7 @@
 <!doctype html>
 <title>{% block title %}{% endblock %} | Battlefield3 Development News Aggregator</title>
 <link rel=stylesheet href={{ url_for('static', filename='style.css') }} type=text/css>
+<link rel="shortcut icon" href={{ url_for('static', filename='favicon.png') }} type=image/png>
 {%- if feed_url is defined %}
 <link href="{{ feed_url }}" rel=alternate title="BF3 Development News" type=application/atom+xml>
 {%- endif %}
