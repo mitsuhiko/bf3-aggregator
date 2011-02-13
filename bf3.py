@@ -164,8 +164,11 @@ class Message(db.Model):
     @property
     def html_text(self):
         if self.source == 'twitter':
-            return Markup(TwitterText(unicode(escape(self.text)))
-                .autolink.auto_link())
+            # careful: TwitterText.autolink.auto_link does *not* escape
+            # HTML.  On the other hand, the twitter API will give you
+            # the text HTML escaped.  Why, please ask the respective
+            # authors.  It's dumb ...
+            return Markup(TwitterText(self.text).autolink.auto_link())
         return Markup(self.text)
 
     @property
