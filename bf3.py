@@ -4,7 +4,8 @@
     bf3
     ~~~
 
-    Battlefield3 aggregator script thingy.
+    Battlefield3 aggregator script thingy.  Uses logging from the stdlib and
+    something has to configure the logger before this can safely be used.
 
     :copyright: (c) Copyright 2011 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
@@ -30,7 +31,31 @@ app = Flask(__name__)
 app.config.from_pyfile('defaults.cfg')
 app.config.from_pyfile('local.cfg')
 db = SQLAlchemy(app)
-logger = logging.getLogger('bf3')
+
+
+# set up the logging system based on debug settings
+if app.debug:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    from logging.handlers import SMTPHandler
+    mail_handler = SMTPHandler(app.config['MAIL_SERVER'],
+                               app.config['ERROR_MAIL_SENDER'],
+                               app.config['ADMINS'],
+                               app.config['ERROR_MAIL_SUBJECT'])
+    mail_handler.setFormatter(logging.Formatter('''\
+Message type:       %(levelname)s
+Location:           %(pathname)s:%(lineno)d
+Module:             %(module)s
+Function:           %(funcName)s
+Time:               %(asctime)s
+
+Message:
+
+%(message)s
+'''))
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.ERROR)
+    root_logger.addHandler(mail_handler)
 
 
 _security_token_re = re.compile(r'var SECURITYTOKEN\s+=\s+"([^"]+)"')
@@ -43,6 +68,7 @@ _post_detail_re = re.compile(
     r'<!-- message -->(?P<contents>.*?)<!-- / message -->'
     r'(?usm)'
 )
+logger = logging.getLogger('bf3')
 
 
 @app.template_filter('datetimeformat')
