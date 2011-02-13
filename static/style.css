@@ -5,6 +5,10 @@ body {
     color: white;
 }
 
+img {
+    border: none;
+}
+
 a {
     color: #95bed5;
 }
@@ -96,6 +100,18 @@ div.pagination a, div.pagination strong {
 div.pagination a:hover, div.pagination strong {
     background: #3a4f61;
     color: white;
+}
+
+div.legal {
+    line-height: 1.2;
+    margin-top: 30px;
+    font-size: 11px;
+    text-align: right;
+    color: #192a37;
+}
+
+div.legal a {
+    color: #192a37;
 }
 
 /* :::: TIMELINE :::: */

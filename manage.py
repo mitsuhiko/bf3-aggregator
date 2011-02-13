@@ -14,6 +14,8 @@ def initdb():
 @manager.command
 def sync():
     """Download new messages from twitter and forums"""
+    import logging
+    logging.basicConfig(level=logging.ERROR)
     bf3.sync()
     print 'Done syncing'
 

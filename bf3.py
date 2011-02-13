@@ -21,13 +21,7 @@ from flask import Flask, Markup, render_template, json, request, url_for, \
      redirect, escape, jsonify
 from flaskext.sqlalchemy import SQLAlchemy
 from werkzeug.urls import url_decode, url_encode, url_quote
-from werkzeug.http import parse_date
-
-# old werkzeug version
-try:
-    from werkzeug.http import http_date
-except ImportError:
-    from werkzeug import http_date
+from werkzeug.http import parse_date, http_date
 
 from werkzeug.contrib.atom import AtomFeed
 
@@ -37,7 +31,6 @@ app.config.from_pyfile('defaults.cfg')
 app.config.from_pyfile('local.cfg')
 db = SQLAlchemy(app)
 logger = logging.getLogger('bf3')
-logging.basicConfig(level=logging.ERROR)
 
 
 _security_token_re = re.compile(r'var SECURITYTOKEN\s+=\s+"([^"]+)"')
@@ -282,6 +275,8 @@ class ForumSearcher(object):
         def move_table_contents_out(node):
             parent = node.getparent()
             contents = node.getchildren()[0].getchildren()[0].getchildren()[0]
+            if contents.tag.split('}')[-1] == 'td':
+                contents.tag = 'div'
             node.addnext(contents)
             parent.remove(node)
 
@@ -297,6 +292,7 @@ class ForumSearcher(object):
             elif node.tag == 'img':
                 if 'src' in node.attrib:
                     node.attrib['src'] = make_absolute_url(node.attrib['src'])
+                node.attrib.pop('border', None)
             elif node.tag == 'table':
                 node.attrib.pop('cellpadding', None)
                 node.attrib.pop('width', None)

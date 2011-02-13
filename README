@@ -2,6 +2,8 @@ BF 3 News Aggregator
 
 Running on bf3.immersedcode.org
 
+Currently requires Werkzeug==dev
+
 Things to do:
 
   1. create virtualenv
