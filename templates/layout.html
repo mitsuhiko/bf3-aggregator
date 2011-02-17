@@ -49,6 +49,9 @@
       represent the views or opinions of EA and/or DICE.<br>
       Trademarks belong to their respective owners.<br>
       User authentication <a href=http://steampowered.com/>Powered by Steam</a>.
+      {% if g.user and g.user.is_admin %}
+      <a href={{ url_for('admin') }}>Admin</a>
+      {% endif %}
     </div>
   </div>
 </div>

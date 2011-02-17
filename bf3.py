@@ -91,34 +91,17 @@ class Developer(db.Model):
     forum_name = db.Column(db.String(50))
     name = db.Column(db.String(50))
     slug = db.Column(db.String(50))
+    description = db.Column(db.Text)
 
-    _cfg_dict = None
+    def __init__(self, name, twitter_name=None, forum_name=None):
+        self.name = name
+        self.twitter_name = twitter_name
+        self.forum_name = forum_name
+        self.description = u''
+        self.slug = u'-'.join(self.name.lower().split())
 
-    @staticmethod
-    def get_or_create(d):
-        rv = Developer.query.filter_by(name=d['realname']).first()
-        if rv is not None:
-            return rv
-        rv = Developer()
-        rv.name = d['realname']
-        rv.twitter_name = d.get('twitter_name')
-        rv.forum_name = d.get('forum_name')
-        rv.slug = u'-'.join(rv.name.split()).lower()
-        db.session.add(rv)
-        return rv
-
-    @property
-    def cfg_dict(self):
-        if self._cfg_dict is None:
-            for d in app.config['DICE_DEVELOPERS']:
-                if d['realname'] == self.name:
-                    self._cfg_dict = d
-                    break
-        return self._cfg_dict
-
-    @property
-    def description(self):
-        return Markup(self.cfg_dict.get('description', ''))
+    def description_html(self):
+        return Markup(self.description)
 
     def to_dict(self, summary=False):
         rv = {
@@ -209,7 +192,8 @@ class User(db.Model):
     as favoring tweets and posts and to vote on them.
     """
     id = db.Column('user_id', db.Integer, primary_key=True)
-    steam_id = db.Column('steam_id', db.String(80))
+    steam_id = db.Column(db.String(80))
+    is_admin = db.Column(db.Boolean)
     favorites = db.dynamic_loader('Message', secondary=user_favorites,
                                   query_class=Message.query_class)
 
@@ -219,6 +203,7 @@ class User(db.Model):
         if user is None:
             user = User()
             user.steam_id = steam_id
+            user.is_admin = False
             db.session.add(user)
         return user
 
@@ -514,10 +499,18 @@ def get_tweets(username):
 
 def require_login(f):
     def login_protected(*args, **kwargs):
-        if not 'user_id' in session:
+        if g.user is None:
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return update_wrapper(login_protected, f)
+
+
+def require_admin(f):
+    def page_protected(*args, **kwargs):
+        if not g.user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return require_login(update_wrapper(page_protected, f))
 
 
 def sync_forum_posts(searcher, developer):
@@ -556,8 +549,7 @@ def sync():
     """Synchronize with database"""
     logger.info('Synchronizing upstream posts')
     searcher = get_forum_searcher()
-    for developer in app.config['DICE_DEVELOPERS']:
-        dev = Developer.get_or_create(developer)
+    for dev in Developer.query.all():
         if dev.forum_name is not None:
             sync_forum_posts(searcher, dev)
         if dev.twitter_name is not None:
@@ -579,7 +571,7 @@ def show_listing(template, page, query, per_page=30, context=None):
         context = {}
 
     # if a user is logged in and we don't want JSON output we also have
-    # to fetch the information about which entries are favorited.
+    # to fetch the information about which entries are starred
     if g.user is not None:
         context['starred'] = g.user.get_favorite_status_for(pagination.items)
 
@@ -696,6 +688,26 @@ def create_or_login(resp):
     g.user.login()
     flash('You are logged in as %s' % g.user.nickname)
     return redirect(oid.get_next_url())
+
+
+@app.route('/admin/', methods=['GET', 'POST'])
+@require_admin
+def admin():
+    developers = Developer.query.order_by('-name').all()
+    if request.method == 'POST':
+        for dev in developers:
+            dev.name = request.form['name_%d' % dev.id]
+            dev.twitter_name = request.form['twitter_name_%d' % dev.id] or None
+            dev.forum_name = request.form['forum_name_%d' % dev.id] or None
+            dev.description = request.form['description_%d' % dev.id]
+        new_dev = request.form['new_dev']
+        if new_dev:
+            dev = Developer(new_dev)
+            db.session.add(dev)
+        db.session.commit()
+        flash('Changes saved')
+        return redirect(request.base_url)
+    return render_template('admin.html', developers=developers)
 
 
 @app.route('/_nojs')

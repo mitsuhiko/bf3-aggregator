@@ -1,0 +1,30 @@
+{% extends 'layout.html' %}
+{% block title %}Admin{% endblock %}
+{% macro render_dev_box(dev) %}
+{% endmacro %}
+{% block body %}
+  <h2>Admin</h2>
+  <div class="box admin-box">
+    <form action="" method=post>
+      <h3>Developers</h3>
+      {%- for dev in developers %}
+      <dl>
+        <dt>Name:
+        <dd><input type=text name=name_{{ dev.id }} value="{{ dev.name }}">
+        <dt>Twitter:
+        <dd><input type=text name=twitter_name_{{ dev.id }} value="{{ dev.twitter_name or '' }}">
+        <dt>Forums:
+        <dd><input type=text name=forum_name_{{ dev.id }} value="{{ dev.forum_name or '' }}">
+        <dt>Description:
+        <dd><textarea name=description_{{ dev.id }} rows=8 cols=60>{{ dev.description }}</textarea>
+      </dl>
+      {%- endfor %}
+      <h3>Add Developer</h3>
+      <dl>
+        <dt>Name:
+        <dd><input type=text name=new_dev>
+      </dl>
+      <p><input type=submit value=Update>
+    </form>
+  </div>
+{% endblock %}

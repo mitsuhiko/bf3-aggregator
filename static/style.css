@@ -260,3 +260,32 @@ dl dd {
     margin: 3px 0 10px 30px;
     padding: 0;
 }
+
+/* :::: INPUTS :::: */
+input, textarea {
+    font-family: 'Verdana', sans-serif;
+    font-size: 13px;
+    background: url(pattern.png);
+    border: 1px solid #3a4f61;
+    color: white;
+    padding: 2px;
+}
+
+input[type="submit"] {
+    padding: 3px 10px;
+}
+
+/* :::: ADMIN :::: */
+div.admin-box {
+    line-height: 1.2;
+}
+
+div.admin-box dd {
+    margin: 4px 0 6px 20px;
+    padding: 0;
+}
+
+div.admin-box dt {
+    margin: 0;
+    padding: 0;
+}
