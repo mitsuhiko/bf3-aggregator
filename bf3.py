@@ -241,6 +241,8 @@ class User(db.Model):
         session.permanent = False
 
     def get_favorite_status_for(self, messages):
+        if not messages:
+            return set()
         uf = user_favorites.c
         result = db.session.execute(user_favorites.select(
             (uf.user_id == self.id) &
