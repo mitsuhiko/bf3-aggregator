@@ -582,7 +582,9 @@ def show_listing(template, page, query, per_page=30, context=None):
 
 
 @app.before_request
-def lookup_current_user():
+def before_request():
+    if app.config['MAINTENANCE'] and request.endpoint != 'static':
+        return render_template('maintenance.html'), 503
     g.user = None
     if 'user_id' in session:
         g.user = User.query.get(session['user_id'])
