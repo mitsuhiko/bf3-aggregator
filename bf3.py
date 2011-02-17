@@ -100,6 +100,7 @@ class Developer(db.Model):
         self.description = u''
         self.slug = u'-'.join(self.name.lower().split())
 
+    @property
     def description_html(self):
         return Markup(self.description)
 
