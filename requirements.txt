@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 Flask-Script
+Flask-OpenID
 lxml
 html5lib
 twitter_text_py
