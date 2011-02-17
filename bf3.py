@@ -18,11 +18,14 @@ import logging
 from twitter_text import TwitterText
 from datetime import datetime, timedelta
 from urlparse import urljoin
+from functools import update_wrapper
 from flask import Flask, Markup, render_template, json, request, url_for, \
-     redirect, escape, jsonify
+     redirect, escape, jsonify, g, session, flash
 from flaskext.sqlalchemy import SQLAlchemy
+from flaskext.openid import OpenID
 from werkzeug.urls import url_decode, url_encode, url_quote
 from werkzeug.http import parse_date, http_date
+from werkzeug.utils import cached_property
 
 from werkzeug.contrib.atom import AtomFeed
 
@@ -31,6 +34,7 @@ app = Flask(__name__)
 app.config.from_pyfile('defaults.cfg')
 app.config.from_pyfile('local.cfg')
 db = SQLAlchemy(app)
+oid = OpenID(app)
 
 
 # set up the logging system based on debug settings
@@ -68,31 +72,16 @@ _post_detail_re = re.compile(
     r'<!-- message -->(?P<contents>.*?)<!-- / message -->'
     r'(?usm)'
 )
+_steam_id_re = re.compile('steamcommunity.com/openid/id/(.*?)$')
 logger = logging.getLogger('bf3')
 
 
-@app.template_filter('datetimeformat')
-def format_datetime(obj):
-    return obj.strftime('%Y-%m-%d @ %H:%M')
-
-
-def request_wants_json():
-    """Returns true if the request wants to get JSON output"""
-    # we only accept json if the quality of json is greater than the
-    # quality of text/html because text/html is preferred to support
-    # browsers that accept on */*
-    best = request.accept_mimetypes \
-        .best_match(['application/json', 'text/html'])
-    return best == 'application/json' and \
-       request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
-
-
-def url_for_different_page(page):
-    """References a different page."""
-    args = request.view_args.copy()
-    args['page'] = page
-    return url_for(request.endpoint, **args)
-app.jinja_env.globals['url_for_different_page'] = url_for_different_page
+def call_steam_api(_method, **options):
+    """Calls a steam API method and returns the value"""
+    options['key'] = app.config['STEAM_API_KEY']
+    url = 'http://api.steampowered.com/%s/v0001/?%s' % \
+        (_method.replace('.', '/'), url_encode(options))
+    return json.load(urllib2.urlopen(url))
 
 
 class Developer(db.Model):
@@ -152,14 +141,19 @@ class Message(db.Model):
     pub_date = db.Column(db.DateTime)
     developer = db.relation('Developer')
     reference_id = db.Column(db.String(50))
+    hidden = db.Column(db.Boolean)
+    votes = db.Column(db.Integer)
 
-    def __init__(self, developer, text, source, pub_date, reference_id):
+    def __init__(self, developer, text, source, pub_date, reference_id,
+                 hidden=False):
         assert source in ('forums', 'twitter'), 'unknown source'
         self.developer = developer
         self.text = text
         self.source = source
         self.pub_date = pub_date
         self.reference_id = reference_id
+        self.hidden = hidden
+        self.votes = 0
 
     @property
     def html_text(self):
@@ -203,6 +197,79 @@ class Message(db.Model):
             if self.source == 'twitter':
                 rv['twitter_text'] = self.text
         return rv
+
+
+user_votes = db.Table('user_votes',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.user_id')),
+    db.Column('message_id', db.Integer, db.ForeignKey('message.message_id')),
+    db.Column('dir', db.Integer)
+)
+user_favorites = db.Table('user_favorites',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.user_id')),
+    db.Column('message_id', db.Integer, db.ForeignKey('message.message_id'))
+)
+
+
+class User(db.Model):
+    """Represents a user on the website.  A user can sign in with his steam
+    ID and for as long as he is logged in a few extra functions unlock (such
+    as favoring tweets and posts and to vote on them.
+    """
+    id = db.Column('user_id', db.Integer, primary_key=True)
+    steam_id = db.Column('steam_id', db.String(80))
+    favorites = db.dynamic_loader('Message', secondary=user_favorites,
+                                  secondaryjoin=id == user_favorites.c.user_id,
+                                  query_class=Message.query_class)
+
+    @staticmethod
+    def get_or_create(steam_id):
+        user = User.query.filter_by(steam_id=steam_id).first()
+        if user is None:
+            user = User()
+            user.steam_id = steam_id
+            db.session.add(user)
+        return user
+
+    @cached_property
+    def steam_data(self):
+        rv = call_steam_api('ISteamUser.GetPlayerSummaries',
+                            steamids=self.steam_id)
+        return rv['response']['players']['player'][0] or {}
+
+    @property
+    def profile_url(self):
+        return 'http://steamcommunity.com/profiles/%s' % self.steam_id
+
+    @property
+    def nickname(self):
+        rv = self.get_from_session_cache('nickname')
+        if rv is None:
+            rv = self.steam_data.get('personaname')
+        return rv
+
+    @property
+    def avatar_url(self):
+        return self.steam_data.get('avatar')
+
+    def login(self):
+        session['user_id'] = self.id
+        session['nickname'] = self.nickname
+
+    def logout(self):
+        if session.get('user_id') != self.id:
+            return
+        session.pop('user_id', None)
+        session.pop('nickname', None)
+
+    def get_from_session_cache(self, key):
+        try:
+            user_id = session.get('user_id')
+        except RuntimeError:
+            # not in a request context :(
+            return
+        if user_id is None or user_id != self.id:
+            return
+        return session.get(key)
 
 
 class AuthenticationError(Exception):
@@ -406,6 +473,30 @@ class ForumSearcher(object):
         return self.find_all_posts_from_search_results(resp.read())
 
 
+@app.template_filter('datetimeformat')
+def format_datetime(obj):
+    return obj.strftime('%Y-%m-%d @ %H:%M')
+
+
+def request_wants_json():
+    """Returns true if the request wants to get JSON output"""
+    # we only accept json if the quality of json is greater than the
+    # quality of text/html because text/html is preferred to support
+    # browsers that accept on */*
+    best = request.accept_mimetypes \
+        .best_match(['application/json', 'text/html'])
+    return best == 'application/json' and \
+       request.accept_mimetypes[best] > request.accept_mimetypes['text/html']
+
+
+def url_for_different_page(page):
+    """References a different page."""
+    args = request.view_args.copy()
+    args['page'] = page
+    return url_for(request.endpoint, **args)
+app.jinja_env.globals['url_for_different_page'] = url_for_different_page
+
+
 def get_forum_searcher():
     """Return a useful forum searcher."""
     return ForumSearcher(app.config['FORUM_USERNAME'],
@@ -417,6 +508,14 @@ def get_tweets(username):
     resp = urllib2.urlopen('http://twitter.com/statuses/user_timeline/' +
                            url_quote(username) + '.json')
     return json.load(resp)
+
+
+def require_login(f):
+    def login_protected(*args, **kwargs):
+        if not 'user_id' in session:
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return update_wrapper(login_protected, f)
 
 
 def sync_forum_posts(searcher, developer):
@@ -439,15 +538,15 @@ def sync_tweets(developer):
     logger.info('Checking tweets of @%s', developer.twitter_name)
     tweets = get_tweets(developer.twitter_name)
     for tweet in tweets:
-        if tweet.get('in_reply_to_user_id'):
-            continue
+        hidden = bool(tweet.get('in_reply_to_user_id'))
         msg = Message.query.filter_by(
             source='twitter', reference_id=tweet['id_str']).first()
         if msg is not None:
             continue
         logger.info('Found new tweet #%s' % tweet['id_str'])
         msg = Message(developer, tweet['text'], 'twitter',
-                      parse_date(tweet['created_at']), tweet['id_str'])
+                      parse_date(tweet['created_at']), tweet['id_str'],
+                      hidden)
         db.session.add(msg)
 
 
@@ -468,6 +567,7 @@ def show_listing(template, page, query, per_page=30, context=None):
     """Helper that renders listings"""
     pagination = query \
         .options(db.eagerload('developer')) \
+        .filter_by(hidden=False) \
         .order_by(Message.pub_date.desc()) \
         .paginate(page, per_page)
     if request_wants_json():
@@ -477,6 +577,13 @@ def show_listing(template, page, query, per_page=30, context=None):
         context = {}
     context['pagination'] = pagination
     return render_template(template, **context)
+
+
+@app.before_request
+def lookup_current_user():
+    g.user = None
+    if 'user_id' in session:
+        g.user = User.query.get(session['user_id'])
 
 
 @app.route('/', defaults={'page': 1})
@@ -489,7 +596,7 @@ def show_all(page):
 @app.route('/<any(twitter, forums):source>/feed.atom')
 @app.route('/developer/<slug>/feed.atom', defaults={'source': 'developer'})
 def feed(source, slug=None):
-    query = Message.query
+    query = Message.query.filter_by(hidden=False)
     if source == 'developer':
         developer = Developer.query.filter_by(slug=slug).first_or_404()
         query = query.filter_by(developer=developer)
@@ -510,14 +617,14 @@ def feed(source, slug=None):
 @app.route('/twitter/', defaults={'page': 1})
 @app.route('/twitter/page/<int:page>')
 def show_tweets(page):
-    return show_listing('show_twitter.html', page, \
+    return show_listing('show_twitter.html', page,
         Message.query.filter_by(source='twitter'))
 
 
 @app.route('/forums/', defaults={'page': 1})
 @app.route('/forums/page/<int:page>')
 def show_forums(page):
-    return show_listing('show_forums.html', page, \
+    return show_listing('show_forums.html', page,
         Message.query.filter_by(source='forums'), per_page=10)
 
 
@@ -525,9 +632,16 @@ def show_forums(page):
 @app.route('/developer/<slug>/page/<int:page>')
 def show_developer(slug, page):
     developer = Developer.query.filter_by(slug=slug).first_or_404()
-    return show_listing('show_developer.html', page, \
+    return show_listing('show_developer.html', page,
         Message.query.filter_by(developer=developer),
         context={'developer': developer})
+
+
+@app.route('/my-favs/', defaults={'page': 1})
+@app.route('/my-favs/page/<int:page>')
+@require_login
+def my_favorites(page):
+    return show_listing('my_favorites.html', page, g.user.favorites)
 
 
 @app.route('/developer/')
@@ -544,6 +658,37 @@ def show_developers():
 @app.route('/about')
 def about():
     return render_template('about.html')
+
+
+@app.route('/login')
+@oid.loginhandler
+def login():
+    if g.user is not None:
+        return redirect(oid.get_next_url())
+    return oid.try_login('http://steamcommunity.com/openid')
+
+
+@app.route('/logout')
+def logout():
+    if g.user is not None:
+        flash('You were logged out')
+        g.user.logout()
+    return redirect(oid.get_next_url())
+
+
+@oid.after_login
+def create_or_login(resp):
+    print resp.identity_url
+    match = _steam_id_re.search(resp.identity_url)
+    if match is None:
+        logger.error('Could not find steam ID for %r' % resp.identity_url)
+        flash(u'Could not sign in.  Steam did not respond properly')
+        return redirect(url_for('index'))
+    g.user = User.get_or_create(match.group(1))
+    db.session.commit()
+    g.user.login()
+    flash('You are logged in as %s' % g.user.nickname)
+    return redirect(oid.get_next_url())
 
 
 @app.errorhandler(404)

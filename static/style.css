@@ -1,8 +1,17 @@
 body {
-    background: black url(header.png) no-repeat center 0;
+    background: black;
     font-family: 'Verdana', sans-serif;
     font-size: 13px;
     color: white;
+    margin: 0;
+    padding: 0;
+}
+
+div.page {
+    background: black url(header.png) no-repeat center 0;
+    margin: 0;
+    padding: 2px;
+    min-height: 460px;
 }
 
 img {
@@ -19,12 +28,14 @@ a:hover {
 
 div.page div.header h1 {
     display: none;
+    margin: 0;
+    padding: 0;
 }
 
 ul.navigation {
     list-style: none;
     width: 770px;
-    margin: 30px auto 60px auto;
+    margin: 0 auto 20px auto;
     padding: 0;
     text-align: right;
 }
@@ -53,7 +64,7 @@ ul.navigation li a:hover {
 
 div.contents {
     width: 770px;
-    margin: 30px auto;
+    margin: 25px auto;
 }
 
 div.contents h2, div.contents h3 {
@@ -62,7 +73,7 @@ div.contents h2, div.contents h3 {
     font-weight: normal;
     margin: 0;
     color: #cbd5df;
-    text-shadow: #8594a2 0 0 1px;
+    text-shadow: #192a37 0 0 1px;
 }
 
 div.contents h3 {
@@ -76,9 +87,52 @@ div.contents p {
     padding: 0;
 }
 
+div.bodywrapper {
+    margin: 0 -20px;
+    padding: 15px 20px 30px 20px;
+    min-height: 200px;
+    background: url(pattern.png);
+    border-radius: 10px;
+    -moz-border-radius: 10px;
+    -webkit-border-radius: 10px;
+    border: 1px solid #1e232f;
+}
+
 div.feed-box {
     text-align: right;
     font-size: 11px;
+}
+
+/* :::: STEAM LOGIN :::: */
+p.steam-login {
+    width: 770px;
+    margin: 35px auto 0 auto;
+    padding: 0;
+    line-height: 1;
+    height: 30px;
+    text-align: right;
+    font-size: 11px;
+}
+
+p.steam-login a.login {
+    display: block;
+    float: right;
+    background: url(steam-signin.png) no-repeat;
+    width: 154px;
+    height: 23px;
+}
+
+p.steam-login a.login span {
+    display: none;
+}
+
+/* :::: FLASHES :::: */
+div.flash {
+    padding: 5px 10px;
+    margin: 0;
+    background: url(pattern.png);
+    border-bottom: 1px solid #3a4f61;
+    color: #95bed5;
 }
 
 /* :::: PAGINATION :::: */
@@ -167,7 +221,7 @@ ul.news li.item-forums blockquote {
 /* :::: OTHER BOXES :::: */
 
 dl.developer-box, div.box {
-    background: url(pattern.png);
+    background: url(pattern-box.png);
     line-height: 1.5;
     margin: 15px auto;
     padding: 7px 15px;
