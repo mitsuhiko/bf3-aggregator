@@ -254,7 +254,7 @@ class User(db.Model):
     def get_from_session_cache(self, key):
         try:
             user_id = session.get('user_id')
-        except RuntimeError:
+        except Exception:
             # not in a request context :(
             return
         if user_id is None or user_id != self.id:
