@@ -1,0 +1,12 @@
+{% extends 'layout.html' %}
+{% block title %}Error: No Javascript Enabled{% endblock %}
+{% block body %}
+  <h2>{{ self.title() }}</h2>
+  <div class=box>
+    <h3>Awwww</h3>
+    <p>
+      You have disabled JavaScript in your browser.  The feature you
+      tried to use however requires that JavaScript is available.  Please
+      make sure to enable it for this website and hit the back button.
+  </div>
+{% endblock %}

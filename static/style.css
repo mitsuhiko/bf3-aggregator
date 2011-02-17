@@ -201,6 +201,24 @@ ul.news li.item div.developer a.developer {
     font-weight: bold;
 }
 
+ul.news li.item div.developer span.favorite a {
+    cursor: pointer;
+    margin: 2px -3px 0 0;
+    display: block;
+    float: right;
+    background: url(star.png) no-repeat;
+    width: 16px!important;
+    height: 16px!important;
+}
+
+ul.news li.item div.developer span.favorite a.fav {
+    background-position: 0 -16px;
+}
+
+ul.news li.item div.developer span.favorite a span {
+    display: none;
+}
+
 ul.news li.item-forums div.text {
     padding: 10px 20px;
     overflow: auto;

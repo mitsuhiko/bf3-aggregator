@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 from urlparse import urljoin
 from functools import update_wrapper
 from flask import Flask, Markup, render_template, json, request, url_for, \
-     redirect, escape, jsonify, g, session, flash
+     redirect, jsonify, g, session, flash, abort
 from flaskext.sqlalchemy import SQLAlchemy
 from flaskext.openid import OpenID
 from werkzeug.urls import url_decode, url_encode, url_quote
@@ -142,7 +142,6 @@ class Message(db.Model):
     developer = db.relation('Developer')
     reference_id = db.Column(db.String(50))
     hidden = db.Column(db.Boolean)
-    votes = db.Column(db.Integer)
 
     def __init__(self, developer, text, source, pub_date, reference_id,
                  hidden=False):
@@ -153,7 +152,6 @@ class Message(db.Model):
         self.pub_date = pub_date
         self.reference_id = reference_id
         self.hidden = hidden
-        self.votes = 0
 
     @property
     def html_text(self):
@@ -199,11 +197,6 @@ class Message(db.Model):
         return rv
 
 
-user_votes = db.Table('user_votes',
-    db.Column('user_id', db.Integer, db.ForeignKey('user.user_id')),
-    db.Column('message_id', db.Integer, db.ForeignKey('message.message_id')),
-    db.Column('dir', db.Integer)
-)
 user_favorites = db.Table('user_favorites',
     db.Column('user_id', db.Integer, db.ForeignKey('user.user_id')),
     db.Column('message_id', db.Integer, db.ForeignKey('message.message_id'))
@@ -218,7 +211,6 @@ class User(db.Model):
     id = db.Column('user_id', db.Integer, primary_key=True)
     steam_id = db.Column('steam_id', db.String(80))
     favorites = db.dynamic_loader('Message', secondary=user_favorites,
-                                  secondaryjoin=id == user_favorites.c.user_id,
                                   query_class=Message.query_class)
 
     @staticmethod
@@ -254,12 +246,22 @@ class User(db.Model):
     def login(self):
         session['user_id'] = self.id
         session['nickname'] = self.nickname
+        session.permanent = True
 
     def logout(self):
         if session.get('user_id') != self.id:
             return
         session.pop('user_id', None)
         session.pop('nickname', None)
+        session.permanent = False
+
+    def get_favorite_status_for(self, messages):
+        uf = user_favorites.c
+        result = db.session.execute(user_favorites.select(
+            (uf.user_id == self.id) &
+            (uf.message_id.in_([msg.id for msg in messages]))
+        ))
+        return set(row.message_id for row in result.fetchall())
 
     def get_from_session_cache(self, key):
         try:
@@ -575,6 +577,12 @@ def show_listing(template, page, query, per_page=30, context=None):
 
     if context is None:
         context = {}
+
+    # if a user is logged in and we don't want JSON output we also have
+    # to fetch the information about which entries are favorited.
+    if g.user is not None:
+        context['starred'] = g.user.get_favorite_status_for(pagination.items)
+
     context['pagination'] = pagination
     return render_template(template, **context)
 
@@ -678,7 +686,6 @@ def logout():
 
 @oid.after_login
 def create_or_login(resp):
-    print resp.identity_url
     match = _steam_id_re.search(resp.identity_url)
     if match is None:
         logger.error('Could not find steam ID for %r' % resp.identity_url)
@@ -689,6 +696,28 @@ def create_or_login(resp):
     g.user.login()
     flash('You are logged in as %s' % g.user.nickname)
     return redirect(oid.get_next_url())
+
+
+@app.route('/_nojs')
+def no_javascript():
+    return render_template('no_javascript.html')
+
+
+@app.route('/_favorite', methods=['POST'])
+@require_login
+def update_favorite_status():
+    message = Message.query.get(request.form['id'])
+    if message is None:
+        abort(400)
+    try:
+        if request.form['state'] == 'on':
+            g.user.favorites.append(message)
+        else:
+            g.user.favorites.remove(message)
+        db.session.commit()
+    except Exception:
+        abort(400)
+    return 'OK'
 
 
 @app.errorhandler(404)

@@ -3,6 +3,9 @@
 <link rel=stylesheet href={{ url_for('static', filename='style.css') }} type=text/css>
 <link rel="shortcut icon" href={{ url_for('static', filename='favicon.png') }} type=image/png>
 <script type=text/javascript src=https://ajax.googleapis.com/ajax/libs/jquery/1.5.0/jquery.min.js></script>
+<script type=text/javascript>
+  var $ROOT_URL = {{ request.url_root|tojson|safe }};
+</script>
 <script type=text/javascript src={{ url_for('static', filename='script.js') }}></script>
 {%- if feed_url is defined %}
 <link href="{{ feed_url }}" rel=alternate title="BF3 Development News" type=application/atom+xml>
@@ -17,7 +20,7 @@
   <p class=steam-login>
   {%- if not g.user %}
     <a href={{ url_for('login') }} class=login
-      title="Favorite news and vote for entries when logged in"><span>login with steam</span></a>
+      title="Login to favorite news"><span>login with steam</span></a>
   {%- else %}
     Currently logged in as <a href={{ g.user.profile_url }}>{{ g.user.nickname }}</a> |
     <a href={{ url_for('my_favorites') }}>favorited news</a> |

@@ -5,8 +5,14 @@
   {% block listing_body %}
   <ul class=news>
   {%- for item in pagination.items %}
-    <li class="item item-{{ item.source }} item-{{ loop.cycle('odd', 'even') }}">
+    <li class="item item-{{ item.source }} item-{{ loop.cycle('odd', 'even') }}" id=item-{{ item.id }}>
       <div class=developer>
+        {% if g.user %}
+        <span class=favorite>
+          <a href={{ url_for('no_javascript') }} class={{ item.id in starred and 'fav' or 'unfav'
+            }}><span>[favorite]</span></a>
+        </span>
+        {% endif %}
         <a class=developer href={{
           url_for('show_developer', slug=item.developer.slug) }}>{{
             item.developer.name }}</a> wrote on
