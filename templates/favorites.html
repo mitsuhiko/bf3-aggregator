@@ -1,0 +1,13 @@
+{% extends 'listing.html' %}
+{% set feed_url = url_for('feed', source='fav', slug=user.slug) %}
+{% block title %}{{ user.nickname }}'s Favorited Battlefield 3 News{% endblock %}
+{% block listing_body %}
+  {% if not pagination.items %}
+  <p>
+    No favorited items so far.
+  {% elif g.user == user %}
+  <p>
+    Link to this page to share your favorited items with others.
+  {% endif %}
+  {{ super() }}
+{% endblock %}

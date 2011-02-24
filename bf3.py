@@ -84,6 +84,25 @@ def call_steam_api(_method, **options):
     return json.load(urllib2.urlopen(url))
 
 
+def to_base36(value):
+    """Returns a base36 version of an integer"""
+    buf = []
+    while value:
+        value, i = divmod(value, 36)
+        buf.append(u'0123456789abcdefghijklmnopqrstuvwxyz'[i])
+    return u''.join(reversed(buf)) or u'0'
+
+
+def from_base36(value, default=None):
+    """Reversal of to_base36 that only accepts lowercase"""
+    if not value.islower():
+        return default
+    try:
+        return int(value, 36)
+    except (ValueError, TypeError):
+        return default
+
+
 class Developer(db.Model):
     """Represents a developer in the database"""
     id = db.Column('developer_id', db.Integer, primary_key=True)
@@ -197,15 +216,18 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean)
     favorites = db.dynamic_loader('Message', secondary=user_favorites,
                                   query_class=Message.query_class)
+    nickname = db.Column(db.String(120))
 
     @staticmethod
-    def get_or_create(steam_id):
+    def get_or_create(steam_id, sync_nickname=True):
         user = User.query.filter_by(steam_id=steam_id).first()
         if user is None:
             user = User()
             user.steam_id = steam_id
             user.is_admin = False
             db.session.add(user)
+        if sync_nickname:
+            user.nickname = user.steam_data.get('personaname')
         return user
 
     @cached_property
@@ -215,15 +237,12 @@ class User(db.Model):
         return rv['response']['players']['player'][0] or {}
 
     @property
-    def profile_url(self):
-        return 'http://steamcommunity.com/profiles/%s' % self.steam_id
+    def slug(self):
+        return to_base36(int(self.steam_id))
 
     @property
-    def nickname(self):
-        rv = self.get_from_session_cache('nickname')
-        if rv is None:
-            rv = self.steam_data.get('personaname')
-        return rv
+    def profile_url(self):
+        return 'http://steamcommunity.com/profiles/%s' % self.steam_id
 
     @property
     def avatar_url(self):
@@ -231,14 +250,12 @@ class User(db.Model):
 
     def login(self):
         session['user_id'] = self.id
-        session['nickname'] = self.nickname
         session.permanent = True
 
     def logout(self):
         if session.get('user_id') != self.id:
             return
         session.pop('user_id', None)
-        session.pop('nickname', None)
         session.permanent = False
 
     def get_favorite_status_for(self, messages):
@@ -251,15 +268,13 @@ class User(db.Model):
         ))
         return set(row.message_id for row in result.fetchall())
 
-    def get_from_session_cache(self, key):
-        try:
-            user_id = session.get('user_id')
-        except Exception:
-            # not in a request context :(
-            return
-        if user_id is None or user_id != self.id:
-            return
-        return session.get(key)
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return self.id == other.id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class AuthenticationError(Exception):
@@ -600,11 +615,18 @@ def show_all(page):
 @app.route('/feed.atom', defaults={'source': 'all'})
 @app.route('/<any(twitter, forums):source>/feed.atom')
 @app.route('/developer/<slug>/feed.atom', defaults={'source': 'developer'})
+@app.route('/favs/<slug>/feed.atom', defaults={'source': 'fav'})
 def feed(source, slug=None):
     query = Message.query.filter_by(hidden=False)
     if source == 'developer':
         developer = Developer.query.filter_by(slug=slug).first_or_404()
         query = query.filter_by(developer=developer)
+    elif source == 'fav':
+        id = from_base36(slug)
+        if id is None:
+            abort(404)
+        user = User.query.filter_by(steam_id=unicode(id)).first_or_404()
+        query = user.favorites
     elif source != 'all':
         query = query.filter_by(source=source)
     items = query.order_by(Message.pub_date.desc()).limit(30).all()
@@ -646,7 +668,18 @@ def show_developer(slug, page):
 @app.route('/my-favs/page/<int:page>')
 @require_login
 def my_favorites(page):
-    return show_listing('my_favorites.html', page, g.user.favorites)
+    return redirect(url_for('favorites', page=page, slug=g.user.slug))
+
+
+@app.route('/favs/<slug>/', defaults={'page': 1})
+@app.route('/favs/<slug>/page/<int:page>')
+def favorites(slug, page):
+    id = from_base36(slug)
+    if id is None:
+        abort(404)
+    user = User.query.filter_by(steam_id=unicode(id)).first_or_404()
+    return show_listing('favorites.html', page, user.favorites,
+                        context={'user': user})
 
 
 @app.route('/developer/')
