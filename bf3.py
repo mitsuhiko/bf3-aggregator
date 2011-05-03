@@ -367,7 +367,8 @@ class ForumSearcher(object):
         def remove_leading_brs(node):
             prev = node.getprevious()
             while prev is not None:
-                if prev.tag != 'br' or (prev.text and prev.text.strip()):
+                if prev.tag != 'br' or (prev.text and prev.text.strip()) or \
+                   (prev.tail and prev.tail.strip()):
                     break
                 node = prev
                 prev = node.getprevious()
