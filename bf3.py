@@ -570,7 +570,10 @@ def sync():
     searcher = get_forum_searcher()
     for dev in Developer.query.all():
         if dev.forum_name is not None:
-            sync_forum_posts(searcher, dev)
+            try:
+                sync_forum_posts(searcher, dev)
+            except IOError:
+                pass
         if dev.twitter_name is not None:
             sync_tweets(dev)
     db.session.commit()
