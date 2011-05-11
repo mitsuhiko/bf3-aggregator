@@ -567,13 +567,14 @@ def sync_tweets(developer):
 def sync():
     """Synchronize with database"""
     logger.info('Synchronizing upstream posts')
-    searcher = get_forum_searcher()
+    try:
+        searcher = get_forum_searcher()
+    except (IOError, AuthenticationError):
+        searcher = None
     for dev in Developer.query.all():
         if dev.forum_name is not None:
-            try:
+            if searcher is not None:
                 sync_forum_posts(searcher, dev)
-            except IOError:
-                pass
         if dev.twitter_name is not None:
             sync_tweets(dev)
     db.session.commit()
