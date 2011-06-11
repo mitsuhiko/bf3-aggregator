@@ -170,7 +170,7 @@ class Message(db.Model):
     def source_url(self):
         if self.source == 'forums':
             return urljoin(app.config['FORUM_URL'],
-                           '/%s-post.html' % self.reference_id)
+                           '/showthread.php?p=%s' % self.reference_id)
         elif self.source == 'twitter':
             return 'http://twitter.com/%s/status/%s' % (
                 self.developer.twitter_name,
