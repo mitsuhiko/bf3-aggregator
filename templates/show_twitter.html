@@ -1,3 +1,14 @@
 {% extends 'listing.html' %}
 {% set feed_url = url_for('feed', source='twitter') %}
 {% block title %}Latest Tweets{% endblock %}
+{% block listing_body %}
+  <p class=replyselector>Show replies:
+    {% for with_replies, caption in [(True, 'Yes'), (False, 'No')] %}
+    {% if not loop.first %}|{% endif %}
+      <a{% if request.view_args.with_replies == with_replies %} class=active{%
+        endif %} href={{ url_for('show_tweets', with_replies=with_replies)
+          }}>{{ caption }}</a>
+    {% endfor %}
+
+  {{ super() }}
+{% endblock %}

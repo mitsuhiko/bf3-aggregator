@@ -580,13 +580,15 @@ def sync():
     db.session.commit()
 
 
-def show_listing(template, page, query, per_page=30, context=None):
+def show_listing(template, page, query, per_page=30, context=None,
+                 show_hidden=False):
     """Helper that renders listings"""
-    pagination = query \
+    query = query \
         .options(db.eagerload('developer')) \
-        .filter_by(hidden=False) \
-        .order_by(Message.pub_date.desc()) \
-        .paginate(page, per_page)
+        .order_by(Message.pub_date.desc())
+    if not show_hidden:
+        query = query.filter_by(hidden=False)
+    pagination = query.paginate(page, per_page)
     if request_wants_json():
         return jsonify(messages=[x.to_dict() for x in pagination.items])
 
@@ -609,6 +611,12 @@ def before_request():
     g.user = None
     if 'user_id' in session:
         g.user = User.query.get(session['user_id'])
+
+
+@app.url_defaults
+def prefer_twitter_without_replies(endpoint, values):
+    if endpoint == 'show_tweets':
+        values.setdefault('with_replies', False)
 
 
 @app.route('/', defaults={'page': 1})
@@ -646,11 +654,16 @@ def feed(source, slug=None):
     return feed.get_response()
 
 
-@app.route('/twitter/', defaults={'page': 1})
-@app.route('/twitter/page/<int:page>')
-def show_tweets(page):
+@app.route('/twitter/', defaults={'page': 1, 'with_replies': False})
+@app.route('/twitter/page/<int:page>', defaults={'with_replies': False})
+@app.route('/twitter/with-replies/',
+           defaults={'page': 1, 'with_replies': True})
+@app.route('/twitter/with-replies/page/<int:page>',
+           defaults={'with_replies': True})
+def show_tweets(page, with_replies):
     return show_listing('show_twitter.html', page,
-        Message.query.filter_by(source='twitter'))
+        Message.query.filter_by(source='twitter'),
+        show_hidden=with_replies)
 
 
 @app.route('/forums/', defaults={'page': 1})

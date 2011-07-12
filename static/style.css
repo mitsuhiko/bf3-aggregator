@@ -236,6 +236,11 @@ ul.news li.item-forums blockquote {
     margin: 15px 30px;
 }
 
+/* :::: TWITTER PAGE :::: */
+p.replyselector a.active {
+    color: #ffb36e;
+}
+
 /* :::: OTHER BOXES :::: */
 
 dl.developer-box, div.box {
