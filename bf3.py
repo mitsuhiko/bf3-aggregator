@@ -749,7 +749,7 @@ def create_or_login(resp):
 @app.route('/admin/', methods=['GET', 'POST'])
 @require_admin
 def admin():
-    developers = Developer.query.order_by('-name').all()
+    developers = Developer.query.order_by(Developer.name).all()
     if request.method == 'POST':
         for dev in developers:
             dev.name = request.form['name_%d' % dev.id]
